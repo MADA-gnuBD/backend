@@ -1,8 +1,12 @@
 package com.MADA.mada_SeoulBike.domain.user.domain;
 
-import jakarta.persistence.*;
+
 import lombok.*;
-import org.springframework.data.annotation.Id;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Column;
+import jakarta.persistence.PrePersist;
 
 import java.time.LocalDateTime;
 
@@ -17,7 +21,7 @@ public class Users {
 
     @Id
     @GeneratedValue(strategy = IDENTITY)
-    private long id;
+    private Long id;
 
     @Column(nullable = false, unique = true)
     private String userId; //사용자 아이디
