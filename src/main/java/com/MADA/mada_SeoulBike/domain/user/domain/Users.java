@@ -1,0 +1,63 @@
+package com.MADA.mada_SeoulBike.domain.user.domain;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.Id;
+
+import java.time.LocalDateTime;
+
+import static jakarta.persistence.GenerationType.IDENTITY;
+
+@Entity
+@Getter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Users {
+
+    @Id
+    @GeneratedValue(strategy = IDENTITY)
+    private long id;
+
+    @Column(nullable = false, unique = true)
+    private String userId; //사용자 아이디
+
+    @Column(nullable = false, length = 100, unique = true)
+    private String password;
+
+    @Column(nullable = false, length = 500)
+    private String userName; //실제 이름
+
+    @Column(nullable = true, length = 500)
+    private String nickname; //닉네임
+
+    @Column(nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    private String provider; //소셜 로그인 제공자 (google, kakao)
+    private String providerId; //소셜 로그인 id
+
+    private boolean deleted = false; //탈퇴여부
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public void updateInfo(String userId, String password,
+                           String userName, String nickname, String email) {
+        this.userId = userId;
+        this.password = password;
+        this.userName = userName;
+        this.nickname = nickname;
+        this.email = email;
+    }
+
+    public void markDeleted() {
+        this.deleted = true;
+    }
+
+}
