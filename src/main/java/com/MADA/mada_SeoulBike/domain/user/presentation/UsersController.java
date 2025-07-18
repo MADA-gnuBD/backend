@@ -17,17 +17,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/users")
 public class UsersController {
 
-
     private final UsersService userService;
 
-    // 회원가입
     @PostMapping("/signup")
     public ResponseEntity<Void> signup(@RequestBody UserRequestDto requestDto) {
         userService.signup(requestDto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
-    // 로그인
     @PostMapping("/login")
     public ResponseEntity<TokenResponse> login(@RequestBody UserLoginRequest loginRequest,
                                                HttpServletResponse response) {
@@ -37,31 +34,26 @@ public class UsersController {
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setPath("/");
-        cookie.setMaxAge(60 * 60); // 1시간
-
+        cookie.setMaxAge(3600);
         response.addCookie(cookie);
+
         return ResponseEntity.ok(tokenResponse);
     }
 
-    // 내 정보 조회
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getMyInfo() {
-        UserResponse userResponse = userService.getMyInfo();
-        return ResponseEntity.ok(userResponse);
+        return ResponseEntity.ok(userService.getMyInfo());
     }
 
-    // 회원 정보 수정
     @PatchMapping("/me")
     public ResponseEntity<Void> updateProfile(@RequestBody UserRequestDto updateRequest) {
         userService.update(updateRequest);
         return ResponseEntity.ok().build();
     }
 
-    // 회원 탈퇴
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteUser() {
         userService.delete();
         return ResponseEntity.ok().build();
     }
-
 }

@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,11 +34,22 @@ public class AuthService {
     public Users findCurrentUser() {
         try {
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            String username = ((UserDetails) principal).getUsername();
-            log.debug("Authenticated username: {}", username);
 
-            return userRepository.findByUserId(username)
+            String email;
+
+            if (principal instanceof UserDetails userDetails) {
+                email = userDetails.getUsername(); // 일반 JWT 로그인 사용자의 email
+            } else if (principal instanceof OAuth2User oAuth2User) {
+                email = (String) oAuth2User.getAttributes().get("email"); // 소셜 로그인 사용자의 email
+            } else {
+                throw new MyException(MyErrorCode.USER_NOT_FOUND);
+            }
+
+            log.debug("Authenticated email: {}", email);
+
+            return userRepository.findByEmail(email)
                     .orElseThrow(() -> new MyException(MyErrorCode.USER_NOT_FOUND));
+
         } catch (Exception e) {
             throw new MyException(MyErrorCode.USER_NOT_FOUND);
         }
@@ -62,7 +74,6 @@ public class AuthService {
 
         return TokenResponse.of(accessToken, refreshToken);
     }
-
     @Transactional
     public TokenResponse reissue(String refreshToken) {
         // 1. 토큰 유효성 확인

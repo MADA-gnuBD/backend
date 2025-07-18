@@ -29,9 +29,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
 
         // ✅ 정적 리소스나 푸시 알림 관련 경로는 인증 검사 없이 통과
-        if (path.equals("/firebase-messaging-sw.js") ||
-                path.equals("/service-worker.js") ||
-                path.equals("/api/notifications/register-token") ||
+        if (
                 path.startsWith("/static/") ||
                 path.endsWith(".js") ||
                 path.endsWith(".css") ||
@@ -49,6 +47,11 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String getAccessToken(HttpServletRequest request) {
+        // 1. Authorization 헤더 우선
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
                 if (COOKIE_NAME.equals(cookie.getName())) {

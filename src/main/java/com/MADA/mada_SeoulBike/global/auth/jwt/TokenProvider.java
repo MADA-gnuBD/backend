@@ -16,52 +16,52 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Set;
-@RequiredArgsConstructor
 @Component
+@RequiredArgsConstructor
 public class TokenProvider {
 
     private final JwtProperties jwtProperties;
-
     private Key key;
+
+    private static final long ACCESS_TOKEN_EXPIRATION = 1000 * 60 * 60; // 1시간
+    private static final long REFRESH_TOKEN_EXPIRATION = 1000L * 60 * 60 * 24 * 7; // 7일
 
     @PostConstruct
     public void init() {
-        // secret 값으로부터 Key 객체 생성 (HS256 알고리즘)
         this.key = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes());
     }
 
-    public String generateToken(Duration duration, Users user) {
+    // Access Token 생성
+    public String generateToken(Duration expiry, Users user) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + duration.toMillis());
+        Date expiration = new Date(now.getTime() + expiry.toMillis());
 
         return Jwts.builder()
-                .setSubject(user.getUserId())
+                .setSubject(user.getEmail())
                 .setIssuedAt(now)
-                .setExpiration(expiry)
+                .setExpiration(expiration)
                 .claim("id", user.getId())
-                .signWith(SignatureAlgorithm.HS256, jwtProperties.getSecret())
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
 
-    // Refresh Token 생성 (예: 7일 유효)
+    // Refresh Token 생성
     public String generateRefreshToken(Users user) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + Duration.ofDays(7).toMillis());
+        Date expiry = new Date(now.getTime() + REFRESH_TOKEN_EXPIRATION);
 
         return Jwts.builder()
                 .setSubject(user.getEmail())
-                .setIssuer(jwtProperties.getIssuer())
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // 토큰 유효성 검증
+    // 토큰 유효성 검사
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()
@@ -70,12 +70,11 @@ public class TokenProvider {
                     .parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            // 로깅 추가 가능
             return false;
         }
     }
 
-    // 토큰에서 사용자 이메일(주체) 추출
+    // 토큰에서 이메일 추출
     public String getEmailFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -86,18 +85,10 @@ public class TokenProvider {
         return claims.getSubject();
     }
 
-    // 인증 객체 반환 (Spring Security와 연동)
+    // 스프링 시큐리티 인증 객체 생성
     public Authentication getAuthentication(String token) {
         String email = getEmailFromToken(token);
-
-        // UserDetailsService 또는 별도 DB 조회 방식으로 사용자 정보 로드
-        // 여기서는 임시 권한 ROLE_USER 지정
-        Set<SimpleGrantedAuthority> authorities = Collections.singleton(new SimpleGrantedAuthority("ROLE_USER"));
-
-        return new UsernamePasswordAuthenticationToken(
-                email, // principal
-                token, // credentials
-                authorities
-        );
+        Set<SimpleGrantedAuthority> authorities = Set.of(new SimpleGrantedAuthority("ROLE_USER"));
+        return new UsernamePasswordAuthenticationToken(email, token, authorities);
     }
 }

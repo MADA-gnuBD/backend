@@ -26,7 +26,7 @@ public class Users {
     @Column(nullable = false, unique = true)
     private String userId; //사용자 아이디
 
-    @Column(nullable = false, length = 100, unique = true)
+    @Column(nullable = false, length = 100)
     private String password;
 
     @Column(nullable = false, length = 500)
@@ -35,7 +35,7 @@ public class Users {
     @Column(nullable = true, length = 500)
     private String nickname; //닉네임
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)

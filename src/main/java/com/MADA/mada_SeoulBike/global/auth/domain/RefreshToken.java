@@ -13,19 +13,28 @@ import static jakarta.persistence.GenerationType.IDENTITY;
 import static lombok.AccessLevel.PROTECTED;
 
 @AllArgsConstructor
+@NoArgsConstructor(access = PROTECTED)
 @Getter
 @Builder
-@NoArgsConstructor(access = PROTECTED)
 @Entity
-public class RefreshToken
-{
+public class RefreshToken {
+
     @Id
     @GeneratedValue(strategy = IDENTITY)
     private Long id;
 
-    private String refreshToken;
-
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private Long userId;
 
+    private String refreshToken;
+
+    public RefreshToken(Long userId, String refreshToken) {
+        this.userId = userId;
+        this.refreshToken = refreshToken;
+    }
+
+    public RefreshToken update(String newToken) {
+        this.refreshToken = newToken;
+        return this;
+    }
 }
