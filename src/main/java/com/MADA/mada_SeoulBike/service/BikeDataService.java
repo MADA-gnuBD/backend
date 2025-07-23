@@ -23,44 +23,56 @@ public class BikeDataService {
         this.inventoryRepo = inventoryRepo;
     }
 
+    // DB 전체 삭제 후 새로 채우기
+    @Transactional
+    public void resetAndFetchBikeData() {
+        System.out.println("[서비스] DB 전체 삭제!");
+        inventoryRepo.deleteAll();
+        fetchAndSaveBikeData();
+    }
+
+    // 실시간 따릉이 전체 데이터 받아오기 (페이징 처리)
     @Transactional
     public void fetchAndSaveBikeData() {
         try {
-            String url = "http://openapi.seoul.go.kr:8088/" + apiKey + "/json/bikeList/1/1000/";
-            RestTemplate restTemplate = new RestTemplate();
-            String result = restTemplate.getForObject(url, String.class);
+            int start = 1;
+            int batchSize = 1000;
+            while (true) {
+                int end = start + batchSize - 1;
+                String url = "http://openapi.seoul.go.kr:8088/" + apiKey + "/json/bikeList/" + start + "/" + end + "/";
+                System.out.println("[서비스] 호출: " + url);
 
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(result);
-            JsonNode rows = root.path("rentBikeStatus").path("row");
+                RestTemplate restTemplate = new RestTemplate();
+                String result = restTemplate.getForObject(url, String.class);
 
-            for (JsonNode node : rows) {
-                String stationId = node.path("stationId").asText();
-                String stationName = node.path("stationName").asText();
-                Double latitude = node.path("stationLatitude").asDouble();
-                Double longitude = node.path("stationLongitude").asDouble();
-                Integer parkingBikeTotCnt = node.path("parkingBikeTotCnt").asInt();
-                Integer shared = node.path("shared").asInt();
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode root = mapper.readTree(result);
+                JsonNode rows = root.path("rentBikeStatus").path("row");
+                System.out.println("[서비스] 응답 row count: " + (rows == null ? 0 : rows.size()));
 
-                // Upsert: 존재하면 update, 없으면 insert
-                BikeInventory inventory = inventoryRepo.findFirstByStationIdOrderByTimestampDesc(stationId)
-                        .orElse(new BikeInventory());
+                if (rows == null || !rows.isArray() || rows.size() == 0) break;
 
-                inventory.setStationId(stationId);
-                inventory.setStationName(stationName);
-                inventory.setLatitude(latitude);
-                inventory.setLongitude(longitude);
-                inventory.setParkingBikeTotCnt(parkingBikeTotCnt);
-                inventory.setShared(shared);
-                inventory.setTimestamp(LocalDateTime.now());
+                for (JsonNode node : rows) {
+                    BikeInventory inventory = new BikeInventory();
+                    inventory.setStationId(node.path("stationId").asText());
+                    inventory.setStationName(node.path("stationName").asText());
+                    inventory.setLatitude(node.path("stationLatitude").asDouble());
+                    inventory.setLongitude(node.path("stationLongitude").asDouble());
+                    inventory.setParkingBikeTotCnt(node.path("parkingBikeTotCnt").asInt());
+                    inventory.setShared(node.path("shared").asInt());
+                    inventory.setTimestamp(LocalDateTime.now());
 
-                inventoryRepo.save(inventory);
-                System.out.println("저장 또는 업데이트된 stationId: " + inventory.getStationId());
+                    inventoryRepo.save(inventory);
+                    System.out.println("[서비스] 저장된 stationId: " + inventory.getStationId());
+                }
+
+                // 1000개보다 적게 내려오면 마지막 호출이므로 종료
+                if (rows.size() < batchSize) break;
+
+                start += batchSize;
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 }
-
