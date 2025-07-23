@@ -1,7 +1,7 @@
-package com.MADA.mada_SeoulBike.service;
+package com.MADA.mada_SeoulBike.ddarungi.service;
 
-import com.MADA.mada_SeoulBike.entity.BikeInventory;
-import com.MADA.mada_SeoulBike.repository.BikeInventoryRepository;
+import com.MADA.mada_SeoulBike.ddarungi.entity.BikeInventory;
+import com.MADA.mada_SeoulBike.ddarungi.repository.BikeInventoryRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;

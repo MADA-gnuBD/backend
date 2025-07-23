@@ -1,4 +1,4 @@
-package com.MADA.mada_SeoulBike.entity;
+package com.MADA.mada_SeoulBike.ddarungi.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

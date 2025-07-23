@@ -1,6 +1,6 @@
-package com.MADA.mada_SeoulBike.repository;
+package com.MADA.mada_SeoulBike.ddarungi.repository;
 
-import com.MADA.mada_SeoulBike.entity.BikeInventory;
+import com.MADA.mada_SeoulBike.ddarungi.entity.BikeInventory;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

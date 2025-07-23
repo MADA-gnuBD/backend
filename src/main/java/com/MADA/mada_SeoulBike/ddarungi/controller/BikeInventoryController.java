@@ -1,8 +1,8 @@
-package com.MADA.mada_SeoulBike.controller;
+package com.MADA.mada_SeoulBike.ddarungi.controller;
 
-import com.MADA.mada_SeoulBike.entity.BikeInventory;
-import com.MADA.mada_SeoulBike.repository.BikeInventoryRepository;
-import com.MADA.mada_SeoulBike.service.BikeDataService;
+import com.MADA.mada_SeoulBike.ddarungi.entity.BikeInventory;
+import com.MADA.mada_SeoulBike.ddarungi.repository.BikeInventoryRepository;
+import com.MADA.mada_SeoulBike.ddarungi.service.BikeDataService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

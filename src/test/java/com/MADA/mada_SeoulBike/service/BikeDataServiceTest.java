@@ -1,7 +1,8 @@
 package com.MADA.mada_SeoulBike.service;
 
-import com.MADA.mada_SeoulBike.entity.BikeInventory;
-import com.MADA.mada_SeoulBike.repository.BikeInventoryRepository;
+import com.MADA.mada_SeoulBike.ddarungi.entity.BikeInventory;
+import com.MADA.mada_SeoulBike.ddarungi.repository.BikeInventoryRepository;
+import com.MADA.mada_SeoulBike.ddarungi.service.BikeDataService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,8 +12,6 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
