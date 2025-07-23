@@ -5,6 +5,7 @@ import com.MADA.mada_SeoulBike.repository.BikeInventoryRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -74,5 +75,10 @@ public class BikeDataService {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+    @Scheduled(fixedRate = 300000) // 5분마다
+    public void scheduledResetAndFetchBikeData() {
+        System.out.println("[스케줄러] 5분마다 DB 전체 삭제 후 실시간 따릉이 데이터 갱신");
+        resetAndFetchBikeData();
     }
 }
