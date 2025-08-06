@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/bike-inventory")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "*")
 public class BikeInventoryController {
     private final BikeInventoryRepository repo;
     private final BikeDataService bikeDataService;

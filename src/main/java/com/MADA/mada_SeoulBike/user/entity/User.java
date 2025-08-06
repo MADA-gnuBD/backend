@@ -28,6 +28,12 @@ public class User {
     private String name;
 
     @Column(nullable = false)
+    private String role;
+
+    @Column(length=512)
+    private String refreshToken;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @PrePersist

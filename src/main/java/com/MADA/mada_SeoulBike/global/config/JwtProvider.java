@@ -1,9 +1,6 @@
 package com.MADA.mada_SeoulBike.global.config;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -13,56 +10,71 @@ import java.util.Date;
 
 @Component
 public class JwtProvider {
+    @Value("${jwt.secret}")
+    private String secretKey;
 
-    private final Key secretKey;
-    private final long expirationMs;
+    @Value("${jwt.expiration}")
+    private long expiration;
 
-    public JwtProvider(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.expiration}") long expiration
-    ) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes());
-        this.expirationMs = expiration;
-    }
+    @Value("${jwt.refresh-expiration}")
+    private long refreshExpiration;
 
-    // 토큰 생성
-    public String generateToken(Long userId, String email) {
+    public String generateToken(String email, String role) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expirationMs);
+        Date expiryDate = new Date(now.getTime() + expiration);
+
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
 
         return Jwts.builder()
-                .setSubject(userId.toString())
-                .claim("email", email)
+                .setSubject(email)
+                .claim("role", role)
                 .setIssuedAt(now)
-                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    //토큰에서 유저 ID 추출
-    public Long getUserId(String token) {
-        Claims claims = parseClaims(token);
-        return Long.parseLong(claims.getSubject());
+    public String getEmailFromToken(String token) {
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.getSubject();
     }
 
-    // 토큰에서 email 추출
-    public String getEmail(String token) {
-        Claims claims = parseClaims(token);
-        return claims.get("email", String.class);
-    }
-
-    // 토큰 유효성 검사
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token);
+            Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
+        } catch (io.jsonwebtoken.security.SignatureException e) {
+            System.err.println("❌ JWT signature does not match!");
+        } catch (ExpiredJwtException e) {
+            System.err.println("❌ JWT expired!");
+        } catch (MalformedJwtException e) {
+            System.err.println("❌ JWT malformed! " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("❌ JWT parsing error: " + e.getMessage());
         }
+        return false;
     }
 
-    // 내부용 Claims 파싱
-    private Claims parseClaims(String token) {
-        return Jwts.parserBuilder().setSigningKey(secretKey).build()
-                .parseClaimsJws(token).getBody();
+
+    public String generateRefreshToken(String email) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + refreshExpiration); // 별도 만료시간 설정
+
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
     }
+
 }
