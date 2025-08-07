@@ -21,8 +21,8 @@ jobs:
     - name: SSH and deploy backend
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_HOST }} << 'EOF'
-          cd ~/backend
-          git pull origin main
-          docker-compose down
-          docker-compose up --build -d
+          docker stop mada-backend || true
+          docker rm mada-backend || true
+          docker pull saehe/mada-backend:latest
+          docker run -d --name mada-backend -p 8080:8080 saehe/mada-backend:latest
         EOF
