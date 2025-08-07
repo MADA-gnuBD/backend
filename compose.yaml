@@ -1,9 +1,21 @@
+version: '3'
 services:
-  postgres:
-    image: 'postgres:latest'
-    environment:
-      - 'POSTGRES_DB=ddarungiWeb'
-      - 'POSTGRES_PASSWORD=1234'
-      - 'POSTGRES_USER=postgres'
+  backend:
+    image: saehe/mada-backend:latest
+    container_name: mada-backend
     ports:
-      - '5432:5432'
+      - "8080:8080"
+    depends_on:
+      - postgres
+    restart: always
+
+  postgres:
+    image: postgres:latest
+    container_name: backend-postgres-1
+    environment:
+      - POSTGRES_DB=ddarungiWeb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=1234
+    ports:
+      - "5432:5432"
+    restart: always
