@@ -38,13 +38,21 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 🔥 인증 없이 접근 가능한 엔드포인트들
+                        // �� 인증 없이 접근 가능한 엔드포인트들
                         .requestMatchers(HttpMethod.POST, "/api/users/signup").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/health").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/bike-stations").permitAll()
-                        // 🔥 인증이 필요한 엔드포인트들 (명시적으로 설정)
+                        .requestMatchers(HttpMethod.GET, "/bike-inventory/**").permitAll()
+
+                        // 🔥 게시글 관련 엔드포인트들 (인증 필요)
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").authenticated()
+
+                        // �� 인증이 필요한 엔드포인트들 (명시적으로 설정)
                         .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/users/me").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/users/me").authenticated()

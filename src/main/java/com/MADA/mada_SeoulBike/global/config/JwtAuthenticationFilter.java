@@ -28,7 +28,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/users/signup",
             "/api/users/refresh",
             "/api/users/health",
-            "/api/bike-stations"
+            "/api/bike-stations",
+            "/bike-inventory/latest"
     );
 
     @Override
