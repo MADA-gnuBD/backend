@@ -1,15 +1,22 @@
-name: Build Docker Image
+name: Backend CI/CD
 
 on:
   push:
     branches: [ main ]
 
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: saehe/mada-backend
+
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -20,9 +27,31 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image (latest + sha)
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: saehe/mada-backend:latest
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}           # 예: 43.201.61.111
+          username: ${{ secrets.SERVER_SSH_USER || 'ubuntu' }}
+          key: ${{ secrets.SERVER_SSH_KEY }}         # pem 내용 전체
+          script: |
+            set -e
+            cd /home/ubuntu/app                      # docker-compose.yml 있는 경로
+            docker-compose pull backend              # 새 이미지 받기
+            docker-compose up -d backend             # 백엔드만 교체
+            docker image prune -f || true            # (옵션) 오래된 이미지 정리
+            # (옵션) 헬스 확인
+            curl -fsS -o /dev/null http://127.0.0.1:8080/api/users/health || true
