@@ -13,7 +13,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -167,21 +166,7 @@ public class UserController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
     }
-/*
-    // 🆕 헬스체크 엔드포인트 (프론트엔드 /api/health-check에서 사용)
-    @GetMapping("/health")
-    public ResponseEntity<Map<String, String>> health() {
-        System.out.println("🔍 Health check requested");
 
-        Map<String, String> status = new HashMap<>();
-        status.put("status", "UP");
-        status.put("message", "Spring Boot 서버가 정상 작동 중입니다.");
-        status.put("timestamp", LocalDateTime.now().toString());
-
-        System.out.println("✅ Health check response sent");
-        return ResponseEntity.ok(status);
-    }
-*/
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(@RequestBody Map<String, String> body) {
         try {

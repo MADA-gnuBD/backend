@@ -41,9 +41,7 @@ public class SecurityConfig {
                         // �� 인증 없이 접근 가능한 엔드포인트들
                         .requestMatchers(HttpMethod.POST, "/api/users/signup").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/users/health").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/refresh").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/bike-stations").permitAll()
                         .requestMatchers(HttpMethod.GET, "/bike-inventory/**").permitAll()
 
                         // 🔥 게시글 관련 엔드포인트들 (인증 필요)
