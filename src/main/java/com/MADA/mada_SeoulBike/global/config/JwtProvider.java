@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.Locale;
 
 @Component
 public class JwtProvider {
@@ -24,6 +25,11 @@ public class JwtProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
         Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+
+        // ✅ 역할 정규화: null→USER, 대문자, ROLE_ 접두어 제거
+        String norm = (role == null ? "USER" : role)
+                .toUpperCase(Locale.ROOT)
+                .replaceFirst("^ROLE_", "");
 
         return Jwts.builder()
                 .setSubject(email)
@@ -66,7 +72,9 @@ public class JwtProvider {
                 .parseClaimsJws(token)
                 .getBody();
         Object role = claims.get("role");
-        return role == null ? null : role.toString();
+        if (role == null) return null;
+        // ✅ 혹시 모를 일관성 보장 (대문자/ROLE_ 제거)
+        return role.toString().toUpperCase(Locale.ROOT).replaceFirst("^ROLE_", "");
     }
 
     public boolean validateToken(String token) {

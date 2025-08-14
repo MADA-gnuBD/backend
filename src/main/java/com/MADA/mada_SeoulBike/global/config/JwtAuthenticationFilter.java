@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -57,20 +58,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             if (jwtProvider.validateToken(token)) {
                 String email = jwtProvider.getEmailFromToken(token);
-                String role  = jwtProvider.getRoleFromToken(token); // null 가능
+                String rawRole  = jwtProvider.getRoleFromToken(token); // null 가능
 
-                // 🔴 핵심: 컨트롤러/서비스에서 꺼내 쓰도록 request attribute로 심기
+                // ✅ 정규화: 없으면 USER, 대문자, ROLE_ 제거
+                String norm = (rawRole == null ? "USER" : rawRole)
+                        .toUpperCase(Locale.ROOT)
+                        .replaceFirst("^ROLE_", "");
+
+                // 컨트롤러/서비스에서 꺼내 쓰도록 저장
                 req.setAttribute("userEmail", email);
-                if (role != null && !role.isBlank()) {
-                    req.setAttribute("userRole", role);
-                }
+                req.setAttribute("userRole", norm); // ex) ADMIN
 
-                var authorities = (role == null || role.isBlank())
-                        ? Collections.<SimpleGrantedAuthority>emptyList()
-                        : List.of(new SimpleGrantedAuthority("ROLE_" + role));
-
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + norm)); // ex) ROLE_ADMIN
                 var auth = new UsernamePasswordAuthenticationToken(email, null, authorities);
+
                 SecurityContextHolder.getContext().setAuthentication(auth);
+
+                // (선택) 디버그
+                System.out.println("[JWT] email=" + email + ", role=" + norm + ", auth=" + authorities);
             } else {
                 SecurityContextHolder.clearContext();
             }
