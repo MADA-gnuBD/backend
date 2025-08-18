@@ -4,10 +4,13 @@ import com.MADA.mada_SeoulBike.community.dto.request.PostCreateRequest;
 import com.MADA.mada_SeoulBike.community.dto.request.PostUpdateRequest;
 import com.MADA.mada_SeoulBike.community.dto.response.PostResponse;
 import com.MADA.mada_SeoulBike.community.entity.CommunityPost;
+import com.MADA.mada_SeoulBike.community.repository.CommentRepository;
 import com.MADA.mada_SeoulBike.community.repository.CommunityPostRepository;
 import com.MADA.mada_SeoulBike.user.entity.User;
 import com.MADA.mada_SeoulBike.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +24,7 @@ import java.util.stream.Collectors;
 public class CommunityPostService {
     private final CommunityPostRepository postRepository;
     private final UserRepository userRepository;
+    private final CommentRepository commentRepository;
 
     // 게시글 작성
     @Transactional
@@ -113,7 +117,10 @@ public class CommunityPostService {
                 .orElseThrow(() -> new RuntimeException("사용자 정보가 없습니다."));
 
         boolean isOwner = post.getAuthorId().equals(String.valueOf(user.getId()));
-        boolean isAdmin = "admin".equalsIgnoreCase(user.getRole());
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
 
         if (!isOwner && !isAdmin) {
             throw new RuntimeException("삭제 권한이 없습니다.");

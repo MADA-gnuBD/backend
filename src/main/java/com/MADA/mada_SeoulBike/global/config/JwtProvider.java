@@ -7,9 +7,11 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.Locale;
 
 @Component
 public class JwtProvider {
+
     @Value("${jwt.secret}")
     private String secretKey;
 
@@ -22,12 +24,29 @@ public class JwtProvider {
     public String generateToken(String email, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expiration);
-
         Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+
+        // ✅ 역할 정규화: null→USER, 대문자, ROLE_ 접두어 제거
+        String norm = (role == null ? "USER" : role)
+                .toUpperCase(Locale.ROOT)
+                .replaceFirst("^ROLE_", "");
 
         return Jwts.builder()
                 .setSubject(email)
                 .claim("role", role)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public String generateRefreshToken(String email) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + refreshExpiration);
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+
+        return Jwts.builder()
+                .setSubject(email)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -41,8 +60,21 @@ public class JwtProvider {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
-
         return claims.getSubject();
+    }
+
+    /** 🔹 추가: role 추출 */
+    public String getRoleFromToken(String token) {
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        Object role = claims.get("role");
+        if (role == null) return null;
+        // ✅ 혹시 모를 일관성 보장 (대문자/ROLE_ 제거)
+        return role.toString().toUpperCase(Locale.ROOT).replaceFirst("^ROLE_", "");
     }
 
     public boolean validateToken(String token) {
@@ -61,20 +93,4 @@ public class JwtProvider {
         }
         return false;
     }
-
-
-    public String generateRefreshToken(String email) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + refreshExpiration); // 별도 만료시간 설정
-
-        Key key = Keys.hmacShaKeyFor(secretKey.getBytes());
-
-        return Jwts.builder()
-                .setSubject(email)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
-    }
-
 }

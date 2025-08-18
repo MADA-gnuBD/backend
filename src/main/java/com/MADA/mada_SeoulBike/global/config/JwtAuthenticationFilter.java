@@ -6,103 +6,84 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.Set;
+import java.util.List;
+import java.util.Locale;
 
-@Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
 
-    // 인증 없이 통과시킬 URI
-    private static final Set<String> PERMIT_URI = Set.of(
+    /** permitAll 프리픽스(하위 전체 스킵) */
+    private static final List<String> SKIP_PREFIXES = List.of(
+            "/api/ai/",
+            "/bike-inventory/",
             "/api/users/login",
             "/api/users/signup",
-            "/api/users/refresh",
-            "/bike-inventory/latest"
+            "/api/users/refresh"
     );
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
-
+    private boolean shouldSkip(HttpServletRequest request) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true; // CORS preflight
         String uri = request.getRequestURI();
-        String method = request.getMethod();
+        for (String p : SKIP_PREFIXES) {
+            if (uri.startsWith(p)) return true;
+        }
+        return false;
+    }
 
-        System.out.println("🔍 [JwtFilter] " + method + " " + uri);
-
-        // 1. 인증 없이 통과시켜야 하는 URI 예외 먼저 체크
-        if (PERMIT_URI.contains(uri)) {
-            System.out.println("✅ [JwtFilter] PERMIT ALL URI, passing through");
-            filterChain.doFilter(request, response);
+    @Override
+    protected void doFilterInternal(HttpServletRequest req,
+                                    HttpServletResponse res,
+                                    FilterChain chain) throws ServletException, IOException {
+        if (shouldSkip(req)) {
+            chain.doFilter(req, res);
             return;
         }
 
-        // 2. Authorization 헤더 가져오기
-        String authHeader = request.getHeader("Authorization");
-
-        if (StringUtils.hasText(authHeader)) {
-            // 2-1. Bearer 토큰(JWT)인 경우
-            if (authHeader.startsWith("Bearer ")) {
-                String jwt = authHeader.substring(7);
-                System.out.println("🔍 [JwtFilter] Extracted JWT: " + (jwt.length() > 20 ? jwt.substring(0, 20) + "..." : jwt));
-                if (jwtProvider.validateToken(jwt)) {
-                    String email = jwtProvider.getEmailFromToken(jwt);
-                    System.out.println("✅ [JwtFilter] Valid JWT for email: " + email);
-                    request.setAttribute("userEmail", email);
-
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                    filterChain.doFilter(request, response);
-                    return;
-                } else {
-                    System.err.println("❌ [JwtFilter] Invalid JWT");
-                    sendUnauthorized(response, "Invalid JWT");
-                    return;
-                }
-            }
-            // 2-2. 이메일(plain email) 인증 방식인 경우
-            else if (authHeader.contains("@")) {
-                String email = authHeader.trim();
-                System.out.println("✅ [JwtFilter] Email Auth detected! email: " + email);
-                request.setAttribute("userEmail", email);
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                filterChain.doFilter(request, response);
-                return;
-            }
-            // 2-3. 그 외 형식
-            else {
-                System.err.println("❌ [JwtFilter] Unsupported Authorization header: " + authHeader);
-                sendUnauthorized(response, "Unsupported Authorization header");
-                return;
-            }
+        String header = req.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            chain.doFilter(req, res); // 보호된 경로는 이후 Security에서 401/403
+            return;
         }
 
-        // 3. Authorization 헤더 자체가 없는 경우
-        System.err.println("❌ [JwtFilter] Authorization header missing");
-        sendUnauthorized(response, "Authorization header missing");
-    }
+        String token = header.substring(7);
 
-    // 401 에러 응답
-    private void sendUnauthorized(HttpServletResponse response, String message) throws IOException {
-        response.setContentType("application/json");
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.getWriter().write("{\"success\":false, \"error\":\"" + message + "\"}");
+        try {
+            if (jwtProvider.validateToken(token)) {
+                String email = jwtProvider.getEmailFromToken(token);
+                String rawRole  = jwtProvider.getRoleFromToken(token); // null 가능
+
+                // ✅ 정규화: 없으면 USER, 대문자, ROLE_ 제거
+                String norm = (rawRole == null ? "USER" : rawRole)
+                        .toUpperCase(Locale.ROOT)
+                        .replaceFirst("^ROLE_", "");
+
+                // 컨트롤러/서비스에서 꺼내 쓰도록 저장
+                req.setAttribute("userEmail", email);
+                req.setAttribute("userRole", norm); // ex) ADMIN
+
+                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + norm)); // ex) ROLE_ADMIN
+                var auth = new UsernamePasswordAuthenticationToken(email, null, authorities);
+
+                SecurityContextHolder.getContext().setAuthentication(auth);
+
+                // (선택) 디버그
+                System.out.println("[JWT] email=" + email + ", role=" + norm + ", auth=" + authorities);
+            } else {
+                SecurityContextHolder.clearContext();
+            }
+        } catch (Exception e) {
+            SecurityContextHolder.clearContext();
+            // 그냥 통과 → permitAll 경로 막지 않고, 보호된 곳은 나중에 401/403
+        }
+
+        chain.doFilter(req, res);
     }
 }

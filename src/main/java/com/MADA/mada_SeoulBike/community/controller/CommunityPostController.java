@@ -11,6 +11,7 @@ import com.MADA.mada_SeoulBike.community.service.CommunityPostService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -24,7 +25,7 @@ public class CommunityPostController {
     private final CommunityPostService postService;
     private final CommentService commentService;
 
-    // 전체/카테고리/작성자/검색
+    // 목록(전체/카테고리/작성자/검색)
     @GetMapping
     public List<PostResponse> listPosts(
             @RequestParam(required = false) String category,
@@ -43,8 +44,14 @@ public class CommunityPostController {
     // 작성
     @PostMapping
     public PostResponse createPost(@RequestBody PostCreateRequest req, HttpServletRequest request) {
-        String email = (String) request.getAttribute("userEmail"); // Jwt필터에서 저장
-        System.out.println("[DEBUG] createPost email: " + email + ", req: " + req);
+        String email = (String) request.getAttribute("userEmail");
+        if (email == null || email.isBlank()) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) email = auth.getName();
+        }
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자 정보가 없습니다.");
+        }
         return postService.createPost(req, email);
     }
 
@@ -56,6 +63,13 @@ public class CommunityPostController {
             HttpServletRequest request
     ) {
         String email = (String) request.getAttribute("userEmail");
+        if (email == null || email.isBlank()) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) email = auth.getName();
+        }
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자 정보가 없습니다.");
+        }
         return postService.updatePost(id, req, email);
     }
 
@@ -63,10 +77,17 @@ public class CommunityPostController {
     @DeleteMapping("/{id}")
     public void deletePost(@PathVariable Long id, HttpServletRequest request) {
         String email = (String) request.getAttribute("userEmail");
+        if (email == null || email.isBlank()) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) email = auth.getName();
+        }
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자 정보가 없습니다.");
+        }
         postService.deletePost(id, email);
     }
 
-    // 좋아요 (추가)
+    // 좋아요
     @PostMapping("/{id}/like")
     public PostResponse likePost(@PathVariable Long id) {
         return postService.likePost(id);
@@ -76,14 +97,18 @@ public class CommunityPostController {
     @PostMapping("/{id}/comments")
     public CommentResponse createComment(
             @PathVariable Long id,
-            @RequestBody CreateCommentRequest request,
-            HttpServletRequest servletRequest  // JWT 필터에서 userEmail을 저장
+            @RequestBody CreateCommentRequest req,
+            HttpServletRequest servletRequest
     ) {
-        String userEmail = (String) servletRequest.getAttribute("userEmail");
-        if (userEmail == null || userEmail.isBlank()) {
-            throw new RuntimeException("사용자 인증 정보가 없습니다!");
+        String email = (String) servletRequest.getAttribute("userEmail");
+        if (email == null || email.isBlank()) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) email = auth.getName();
         }
-        return commentService.createComment(id, request, userEmail);
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자 정보가 없습니다.");
+        }
+        return commentService.createComment(id, req, email);
     }
 
     // 댓글 조회
@@ -99,8 +124,15 @@ public class CommunityPostController {
             @PathVariable Long commentId,
             HttpServletRequest servletRequest
     ) {
-        String userEmail = (String) servletRequest.getAttribute("userEmail");
-        commentService.deleteComment(postId, commentId, userEmail);
+        String email = (String) servletRequest.getAttribute("userEmail");
+        if (email == null || email.isBlank()) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) email = auth.getName();
+        }
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자 정보가 없습니다.");
+        }
+        commentService.deleteComment(postId, commentId, email);
     }
 
     // 댓글 수정
@@ -108,11 +140,18 @@ public class CommunityPostController {
     public CommentResponse updateComment(
             @PathVariable Long postId,
             @PathVariable Long commentId,
-            @RequestBody UpdateCommentRequest request,
+            @RequestBody UpdateCommentRequest req,
             HttpServletRequest servletRequest
     ) {
-        String userEmail = (String) servletRequest.getAttribute("userEmail");
-        return commentService.updateComment(postId, commentId, request, userEmail);
+        String email = (String) servletRequest.getAttribute("userEmail");
+        if (email == null || email.isBlank()) {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) email = auth.getName();
+        }
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용자 정보가 없습니다.");
+        }
+        return commentService.updateComment(postId, commentId, req, email);
     }
-
 }
+
