@@ -12,20 +12,19 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-    ports:
-      - "5432:5432"
+    ports: ["5432:5432"]
     networks: [app-net]
     restart: always
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
+  # 서버에서 빌드 말고, CI에서 빌드해 푸시하는 걸 권장
   express:
-    # Express 소스가 ./express 폴더에 있다고 가정
-    build: ./express
+    image: saehe/ai-express:latest   # ← CI가 푸시한 이미지 사용
     container_name: ai-express
-    environment:
-      NODE_ENV: production
-    # server.js 에서 반드시 0.0.0.0 로 리슨해야 함
-    ports:
-      - "4000:4000"
+    environment: { NODE_ENV: production }
+    ports: ["4000:4000"]             # 외부 노출이 필요 없으면 지워도 됨
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
       interval: 5s
@@ -33,7 +32,9 @@ services:
       retries: 20
     networks: [app-net]
     restart: always
-
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
   backend:
     image: saehe/mada-backend:latest
@@ -43,20 +44,18 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: 1234
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-
-      AI_BASE_URL: http://express:4000
-      # 필요시
-      # SERVER_PORT: 8080
+      AI_BASE_URL: http://express:4000   # ← 핵심
     depends_on:
       postgres:
         condition: service_healthy
       express:
         condition: service_healthy
-    ports:
-      - "8080:8080"
+    ports: ["8080:8080"]
     networks: [app-net]
     restart: always
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
 networks:
-  app-net:
-    driver: bridge
+  app-net: { driver: bridge }
