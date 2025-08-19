@@ -1,59 +1,100 @@
+# .github/workflows/backend-cicd.yml
 name: Backend CI/CD
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
+  # Docker Hub 이미지 (예: dockerhub_username/repo)
   IMAGE_NAME: saehe/mada-backend
+  # docker-compose 서비스 이름
+  SERVICE_NAME: backend
+  # EC2 내 앱 디렉터리
+  REMOTE_APP_DIR: /home/ubuntu/app
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v5
+      - name: Build and Push (Spring backend image)
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:latest
+          cache-to: type=inline
 
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Fail early if secrets missing
+      - name: Validate required secrets
         shell: bash
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_SSH_USER: ${{ secrets.SERVER_SSH_USER }}
         run: |
-          if [ -z "${SERVER_HOST}" ]; then echo "::error::Missing SERVER_HOST secret"; exit 1; fi
-          if [ -z "${SERVER_SSH_KEY}" ]; then echo "::error::Missing SERVER_SSH_KEY secret"; exit 1; fi
+          [[ -n "$SERVER_HOST" ]] || { echo "::error::Missing SERVER_HOST secret"; exit 1; }
+          [[ -n "$SERVER_SSH_KEY" ]] || { echo "::error::Missing SERVER_SSH_KEY secret"; exit 1; }
+          : "${SERVER_SSH_USER:=ubuntu}"
+          echo "Using ${SERVER_SSH_USER}@${SERVER_HOST}"
 
-      - name: Deploy to EC2 via SSH
+      - name: Deploy to EC2 via SSH (docker-compose)
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_HOST }}              # <— 이게 비어있으면 방금 그 에러
+          host: ${{ secrets.SERVER_HOST }}                 # EIP 또는 도메인 권장 (Route53)
           username: ${{ secrets.SERVER_SSH_USER || 'ubuntu' }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
+          script_stop: true
           script: |
-            set -e
-            cd /home/ubuntu/app
-            docker-compose pull backend
-            docker-compose up -d backend
-            docker image prune -f || true
-            curl -fsS -o /dev/null http://127.0.0.1:8080/api/users/health || true
+            set -euo pipefail
 
+            cd ${{ env.REMOTE_APP_DIR }}
+
+            # docker compose / docker-compose 호환
+            if command -v docker compose >/dev/null 2>&1; then
+              DC="docker compose"
+            else
+              DC="docker-compose"
+            fi
+
+            echo "[CI/CD] Pull latest image for service: ${{ env.SERVICE_NAME }}"
+            $DC pull ${{ env.SERVICE_NAME }}
+
+            echo "[CI/CD] Recreate service (no deps)"
+            $DC up -d --no-deps --force-recreate ${{ env.SERVICE_NAME }}
+
+            echo "[CI/CD] Prune dangling images"
+            docker image prune -f || true
+
+            echo "[CI/CD] Health check"
+            set +e
+            curl -fsS -m 8 http://127.0.0.1:8080/actuator/health || \
+            curl -fsS -m 8 http://127.0.0.1:8080/api/users/health || true
+            set -e
+
+            echo "[CI/CD] Done."
